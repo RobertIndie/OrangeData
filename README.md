@@ -14,11 +14,11 @@
 
 Process:
 
-![process](https://github.com/RobertIndie/OrangeData/blob/master/assets/process.png)
+![process](https://github.com/RobertIndie/OrangeData/raw/master/assets/process.png)
 
 Validate:
 
-![validate](.\assets\validate.png)
+![validate](https://github.com/RobertIndie/OrangeData/raw/master/assets/validate.png)
 
 Block data example:
 
