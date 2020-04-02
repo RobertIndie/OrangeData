@@ -14,7 +14,7 @@
 
 Process:
 
-![process](.\assets\process.png)
+![process](https://github.com/RobertIndie/OrangeData/blob/master/assets/process.png)
 
 Validate:
 
