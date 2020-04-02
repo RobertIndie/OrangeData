@@ -1,16 +1,14 @@
 from Crypto.PublicKey import RSA
-from Crypto.Cipher import PKCS1_OAEP
+from Crypto.Signature.pkcs1_15 import PKCS115_SigScheme
+from Crypto.Hash import SHA256
 import binascii
 import json
-import hashlib
-import binascii
 
 # 证书数据库可由证书信任链维护，这里不进行演示
 certDatabase = {}
 
 
 class Factory:
-
     def __init__(self, name):
         self.name = name
         keyPair = RSA.generate(1024)
@@ -20,30 +18,30 @@ class Factory:
         certDatabase[name] = self.pubKey
 
     def Process(self, orange, processName, data):
-        # 组建数据区块
+        # 构建数据区块
         b = Block()
         b.prevBlock = orange.identity
         b.processName = processName
         b.factoryName = self.name
         b.data = data
 
-        # 获取前一区块的加密数据
+        # 获取前一区块的标识
         prevEncryptedStr = b.prevBlock[256:]
         prevEncryptedBytes = binascii.unhexlify(prevEncryptedStr)
 
-        # 生成待加密的数据
+        # 生成待签名的数据
         blockJson = json.dumps(b.__dict__).encode('utf-8')
-        #blockBytes = bytes(blockJson, encoding='utf-8')
         data = prevEncryptedBytes + blockJson
-        sha256hash = hashlib.sha256(data).digest()  # 利用哈希算法对数据进行压缩
 
-        # 加密数据
-        encryptor = PKCS1_OAEP.new(self.keyPair)
-        encrypted = encryptor.encrypt(sha256hash)
-        encryptedStr = ''.join(format(x, '02x') for x in encrypted)
+        # 数据签名
+        hashData = SHA256.new(data)  # 哈希压缩数据
+        signer = PKCS115_SigScheme(self.keyPair)
+        signature = signer.sign(hashData)
 
-        # 更新标识
-        orange.identity = prevEncryptedStr + encryptedStr
+        signatureStr = ''.join(format(x, '02x') for x in signature)
+
+        # 更新标识并添加数据区块
+        orange.identity = prevEncryptedStr + signatureStr
         orange.blockData.append(b)
         return orange
 
@@ -53,19 +51,22 @@ def Validate(pubKey, identity, block):
     prevEncryptedStr = identity[:256]
     encryptedStr = identity[256:]
 
-    # 解密数据
     encryptedBytes = binascii.unhexlify(encryptedStr)
-    decryptor = PKCS1_OAEP.new(pubKey)
-    decryptedSHA256Hash = decryptor.decrypt(encryptedBytes)
 
     # 生成校验数据
     prevEncryptedBytes = binascii.unhexlify(prevEncryptedStr)
     blockJson = json.dumps(block.__dict__).encode('utf-8')
-    #blockBytes = bytes(blockJson, encoding='utf-8')
     data = prevEncryptedBytes + blockJson
-    sha256hash = hashlib.sha256(data).digest()
+    hashData = SHA256.new(data)
+    verifier = PKCS115_SigScheme(pubKey)
 
-    result = sha256hash == decryptedSHA256Hash
+    # 进行校验
+    result = False
+    try:
+        verifier.verify(hashData, encryptedBytes)
+        result = True
+    except:
+        result = False
     return result
 
 
@@ -92,17 +93,19 @@ factoires["超市"] = Factory("超市")
 
 orange = Orange()
 
-orange = factoires["种子工厂"].Process(orange, "种子", "第一天，采集了一个种子，质量为优。；出售种子。")
+orange = factoires["种子工厂"].Process(orange, "种子", "第1天，采集了一个种子，质量为优；第2天，出售种子。")
 orange = factoires["种植场"].Process(
-    orange, "种植", "第二天，从种子工厂获取了种子；第三天，将种子种在优质土壤上，生长状况良好。；第四十天，出售。")
-orange = factoires["食品加工厂"].Process(orange, "食品加工", "加工了一下")
-orange = factoires["超市"].Process(orange, "超市", "出售")
+    orange, "种植", "第2天，从种子工厂获取了种子；第3天，将种子种在优质土壤上，生长状况良好。；第365天，生长良好，采集香橙；第366天，出售香橙。")
+orange = factoires["食品加工厂"].Process(orange, "食品加工", "第366天，购买香橙；第368天，加工香橙，更香了；第369天，出售。")
+orange = factoires["超市"].Process(orange, "超市", "第369天，采购香橙。")
 
+# 用户在超市购买香橙时，拿到了orange的数据，现在开始校验
+# 校验过程仅用到了证书数据库
 i = len(orange.blockData) - 1
 identity = orange.identity
-while i >= 0 :
-	block = orange.blockData[i]
-	pubKey = certDatabase[block.factoryName]
-	print(Validate(pubKey,identity,block))
-	identity = block.prevBlock
-	i = i - 1
+while i >= 0:
+    block = orange.blockData[i]
+    pubKey = certDatabase[block.factoryName]
+    print(Validate(pubKey, identity, block))
+    identity = block.prevBlock
+    i = i - 1
