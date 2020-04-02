@@ -26,12 +26,12 @@ class Factory:
         b.data = data
 
         # 获取前一区块的标识
-        prevEncryptedStr = b.prevBlock[256:]
-        prevEncryptedBytes = binascii.unhexlify(prevEncryptedStr)
+        prevSignedStr = b.prevBlock[256:]
+        prevSignedBytes = binascii.unhexlify(prevSignedStr)
 
         # 生成待签名的数据
         blockJson = json.dumps(b.__dict__).encode('utf-8')
-        data = prevEncryptedBytes + blockJson
+        data = prevSignedBytes + blockJson
 
         # 数据签名
         hashData = SHA256.new(data)  # 哈希压缩数据
@@ -41,29 +41,29 @@ class Factory:
         signatureStr = ''.join(format(x, '02x') for x in signature)
 
         # 更新标识并添加数据区块
-        orange.identity = prevEncryptedStr + signatureStr
+        orange.identity = prevSignedStr + signatureStr
         orange.blockData.append(b)
         return orange
 
 
 def Validate(pubKey, identity, block):
     # 解析标识
-    prevEncryptedStr = identity[:256]
-    encryptedStr = identity[256:]
+    prevSignedStr = identity[:256]
+    signedStr = identity[256:]
 
-    encryptedBytes = binascii.unhexlify(encryptedStr)
+    signedBytes = binascii.unhexlify(signedStr)
 
     # 生成校验数据
-    prevEncryptedBytes = binascii.unhexlify(prevEncryptedStr)
+    signedBytes = binascii.unhexlify(prevSignedStr)
     blockJson = json.dumps(block.__dict__).encode('utf-8')
-    data = prevEncryptedBytes + blockJson
+    data = signedBytes + blockJson
     hashData = SHA256.new(data)
     verifier = PKCS115_SigScheme(pubKey)
 
     # 进行校验
     result = False
     try:
-        verifier.verify(hashData, encryptedBytes)
+        verifier.verify(hashData, signedBytes)
         result = True
     except:
         result = False
@@ -96,7 +96,8 @@ orange = Orange()
 orange = factoires["种子工厂"].Process(orange, "种子", "第1天，采集了一个种子，质量为优；第2天，出售种子。")
 orange = factoires["种植场"].Process(
     orange, "种植", "第2天，从种子工厂获取了种子；第3天，将种子种在优质土壤上，生长状况良好。；第365天，生长良好，采集香橙；第366天，出售香橙。")
-orange = factoires["食品加工厂"].Process(orange, "食品加工", "第366天，购买香橙；第368天，加工香橙，更香了；第369天，出售。")
+orange = factoires["食品加工厂"].Process(
+    orange, "食品加工", "第366天，购买香橙；第368天，加工香橙，更香了；第369天，出售。")
 orange = factoires["超市"].Process(orange, "超市", "第369天，采购香橙。")
 
 # 用户在超市购买香橙时，拿到了orange的数据，现在开始校验
@@ -104,6 +105,7 @@ orange = factoires["超市"].Process(orange, "超市", "第369天，采购香橙
 i = len(orange.blockData) - 1
 identity = orange.identity
 while i >= 0:
+    # 套娃校验
     block = orange.blockData[i]
     pubKey = certDatabase[block.factoryName]
     print(Validate(pubKey, identity, block))
