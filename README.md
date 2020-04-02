@@ -14,11 +14,11 @@
 
 Process:
 
-![process](G:\codebase\OrangeData\assets\process.png)
+![process](.\assets\process.png)
 
 Validate:
 
-![validate](G:\codebase\OrangeData\assets\validate.png)
+![validate](.\assets\validate.png)
 
 Block data example:
 
